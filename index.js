@@ -8,9 +8,9 @@ import { Octokit } from 'octokit'
 import path from 'path'
 import chalk from 'chalk'
 
-const bitbucket_user = 'iotblue'
-const bitbucket_pass = 'ATBBkqvS55BzLTmVmzZm3gnqXDQJ6336A163'
-const github_token = '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'
+const bitbucket_user = ''
+const bitbucket_pass = ''
+const github_token = ''
 const bb_clientOptions = {
     baseUrl: 'https://api.bitbucket.org/2.0',
     auth: {
