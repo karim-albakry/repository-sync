@@ -4,13 +4,9 @@ import bitbucket_pkg from 'bitbucket'
 import childProcess from 'child_process'
 import fs from 'fs'
 import simpleGit from 'simple-git'
-import express from 'express'
 import { Octokit } from 'octokit'
 import path from 'path'
 import chalk from 'chalk'
-import { cleanup } from '@testing-library/react';
-
-const app = express()
 
 const bitbucket_user = 'iotblue'
 const bitbucket_pass = 'ATBBkqvS55BzLTmVmzZm3gnqXDQJ6336A163'
