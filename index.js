@@ -11,8 +11,8 @@ import chalk from 'chalk'
 const bitbucket_user = ''
 const bitbucket_pass = ''
 const github_token = ''
-const bitbucket_workspace='iotblueSaaS'
-const github_project='iotblue-cervello'
+const bitbucket_workspace=''
+const github_project=''
 
 const bb_clientOptions = {
     baseUrl: 'https://api.bitbucket.org/2.0',
