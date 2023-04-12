@@ -63,13 +63,9 @@ class BitbucketClient {
     if (typeof options !== "object") {
       throw new Error("Options must be an object");
     }
-
     const { query = "", exclude = [] } = options;
 
-    const repos = await this.getValues(1, query, {
-      bitbucket: this.bitbucket,
-      workspaceName: this.workspaceName,
-    });
+    const repos = await this.getValues(1, query);
 
     return repos.filter(({ slug }) => !exclude.includes(slug));
   }
