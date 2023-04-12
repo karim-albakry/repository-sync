@@ -1,71 +1,88 @@
-const { Octokit } = require("@octokit/rest");
+const axios = require("axios");
+const { log, fail } = require("../utils/logger");
 
-class GitHub {
-  // Constructor that initializes the Octokit client with the provided GitHub token
-  constructor(githubToken) {
-    this.octokit = new Octokit({
-      auth: githubToken,
-    });
-  }
+const createOrgRepo = async (
+  authToken,
+  orgName,
+  repoName,
+  isPrivate,
+  retryCount = 0
+) => {
+  const url = `https://api.github.com/orgs/${orgName}/repos`;
+  const headers = {
+    Authorization: `Bearer ${authToken}`,
+    Accept: "application/vnd.github.v3+json",
+  };
+  const data = { name: repoName, private: isPrivate };
 
-  // Method that creates a new repository in the specified GitHub organization
-  async createOrgRepo(githubOrgName, repoName, isPrivate) {
-    // Validate required parameters
-    if (!githubOrgName) {
-      throw new Error("GitHub organization name is required");
+  try {
+    await axios.post(url, data, { headers });
+  } catch (error) {
+    if (!error.response || !error.response.data) {
+      fail(error.message);
     }
-    if (!repoName) {
-      throw new Error("Repository name is required");
-    }
 
-    try {
-      // Make a request to the GitHub API to create the repository
-      const response = await this.octokit.request("POST /orgs/{org}/repos", {
-        org: githubOrgName,
-        name: repoName,
-        private: isPrivate,
-        homepage: "https://github.com",
-        headers: {
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
+    if (
+      error.response.data.message.includes(
+        "You have exceeded a secondary rate limit and have been temporarily blocked from content creation"
+      )
+    ) {
+      const waitTime = 2 ** retryCount * 20000;
+      log(
+        `Rate limit exceeded while creating ${repoName}. Retrying in ${
+          waitTime / 1000
+        } seconds.`
+      );
+      await new Promise((resolve) => {
+        setTimeout(() => {
+          resolve();
+        }, waitTime);
       });
+      return createOrgRepo(
+        authToken,
+        orgName,
+        repoName,
+        isPrivate,
+        retryCount + 1
+      );
+    }
+    fail(JSON.stringify(error.response.data));
+  }
+  return Promise.resolve();
+};
 
-      // Return the response data from the API call
-      return response.data;
-    } catch (error) {
-      // Handle common errors with helpful error messages
-      if (error.status === 422) {
-        throw new Error(
-          `Repository ${repoName} already exists in ${githubOrgName} organization`
-        );
-      } else if (error.status === 401) {
-        throw new Error(`Invalid GitHub token provided`);
-      } else {
-        throw new Error(`Failed to create repository: ${error.message}`);
-      }
+const createRepo = async (authToken, repoName, isPrivate, retryCount = 0) => {
+  try {
+    const url = "https://api.github.com/user/repos";
+    const headers = {
+      Authorization: `Bearer ${authToken}`,
+      Accept: "application/vnd.github.v3+json",
+    };
+    const data = { name: repoName, isPrivate };
+    await axios.post(url, data, { headers });
+  } catch (error) {
+    if (!error.response.data) {
+      fail(error.message);
+    }
+    if (
+      error.response.data.message.includes(
+        "You have exceeded a secondary rate limit and have been temporarily blocked from content creation"
+      )
+    ) {
+      const waitTime = 2 ** retryCount * 20000;
+      log(
+        `Rate limit exceeded while creating ${repoName}. Retrying in ${
+          waitTime / 1000
+        } seconds.`
+      );
+      setTimeout(
+        () => createRepo(authToken, repoName, isPrivate, retryCount + 1),
+        waitTime
+      );
+    } else {
+      fail(JSON.stringify(error.response.data));
     }
   }
+};
 
-  async createUserRepo(repoName, options = {}) {
-    if (!repoName) {
-      throw new Error("Repository name is required");
-    }
-    const {
-      isPrivate = false,
-      isTemplate = true,
-      description = `This ${repoName} repo`,
-    } = options;
-    await this.octokit.request("POST /user/repos", {
-      name: repoName,
-      description,
-      homepage: "https://github.com",
-      private: isPrivate,
-      is_template: isTemplate,
-      headers: {
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-    });
-  }
-}
-
-module.exports = GitHub;
+module.exports = { createRepo, createOrgRepo };

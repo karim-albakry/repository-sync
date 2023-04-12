@@ -7,12 +7,11 @@
  * @param {number} [options.timeout] - The maximum amount of time in milliseconds to wait for the command to complete. Defaults to 0 (no timeout).
  * @throws {Error} - If the command argument is not a string or is an empty string, or if the options argument is not an object, an error is thrown with a descriptive error message.
  */
-const { promisify } = require("util");
-const { exec } = require("child_process");
+const { execSync } = require("child_process");
 const { error, log } = require("./logger");
 const { isNotEmpty } = require("./validator");
 
-async function executeShellCommand(command, options = {}) {
+function executeShellCommand(command, options = {}) {
   if (typeof command !== "string") {
     throw new Error("Command must be a string");
   }
@@ -27,19 +26,50 @@ async function executeShellCommand(command, options = {}) {
 
   const { cwd = process.cwd(), timeout = 0 } = options;
 
-  const execPromise = promisify(exec);
-
   try {
-    const { stdout, stderr } = await execPromise(command, { cwd, timeout });
-    if (stderr) {
-      error(`Stderr: ${stderr}`);
-      return new Error(`Command Error: ${stderr}`);
+    const stdout = execSync(command, { cwd, timeout }).toString();
+    if (stdout) {
+      log(`Stdout: ${stdout}`);
     }
-    log(`Stdout: ${stdout}`);
   } catch (err) {
-    error(`Error: ${err.message}`);
-    return new Error(`Failed to execute command: ${err.message}`);
+    const stderr = err.stderr.toString();
+    error(`Stderr: ${stderr}`);
+    throw new Error(`Failed to execute command: ${stderr}`);
   }
 }
+// const { promisify } = require("util");
+// const { exec } = require("child_process");
+// const { error, log } = require("./logger");
+// const { isNotEmpty } = require("./validator");
+
+// async function executeShellCommand(command, options = {}) {
+//   if (typeof command !== "string") {
+//     throw new Error("Command must be a string");
+//   }
+
+//   if (!isNotEmpty(command)) {
+//     throw new Error("Command must be not empty");
+//   }
+
+//   if (typeof options !== "object") {
+//     throw new Error("Options must be an object");
+//   }
+
+//   const { cwd = process.cwd(), timeout = 0 } = options;
+
+//   const execPromise = promisify(exec);
+
+//   try {
+//     const { stdout, stderr } = await execPromise(command, { cwd, timeout });
+//     if (stderr) {
+//       error(`Stderr: ${stderr}`);
+//       throw new Error(`Command Error: ${stderr}`);
+//     }
+//     log(`Stdout: ${stdout}`);
+//   } catch (err) {
+//     error(`Error: ${err.message}`);
+//     throw new Error(`Failed to execute command: ${err.message}`);
+//   }
+// }
 
 module.exports = executeShellCommand;

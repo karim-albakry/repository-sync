@@ -14,8 +14,8 @@ program
   .requiredOption("-p, --project <name>", "Bitbucket project name")
   .option("-o, --organization <name>", "Github organization name")
   .option("-e, --exclude <names...>", "List of repository names to exclude")
-  .action((options) => {
-    migrate(options);
+  .action(async (options) => {
+    await migrate(options);
   });
 
 program.parse(process.argv);

@@ -1,10 +1,9 @@
 const Joi = require("joi");
 const { isNotEmpty } = require("../utils/validator");
-const cmd = require("../utils/cmd");
 const git = require("../utils/git");
-const Github = require("../models/github");
+const { createOrgRepo, createRepo } = require("../models/github");
 const Bitbucket = require("../models/bitbucket");
-const { success, log, fail } = require("../utils/logger");
+const { success, log, debug, error } = require("../utils/logger");
 
 /**
  * Validates the options object for the migration.
@@ -22,45 +21,138 @@ const optionsSchema = Joi.object({
   workspace: Joi.string().required(),
   exclude: Joi.array().items(Joi.string()),
   organization: Joi.string().allow(""),
-  project: Joi.string().allow(),
+  project: Joi.string().allow(null),
 });
 
 function validateOptions(options) {
-  const { error } = optionsSchema.validate(options);
-  if (error) {
-    throw new Error(`Invalid options: ${error.message}`);
+  const { error: err } = optionsSchema.validate(options);
+  if (err) {
+    throw new Error(`Invalid options: ${err.message}`);
   }
 }
 
-/**
- * Deletes a repository located at the specified path.
- *
- * @param {string} repoLocation - The path to the repository to delete.
- *
- * @throws {Error} Throws an error if the repository cannot be deleted.
- */
-async function cleanUp(repoLocation) {
+// async function cleanUp(repoLocation) {
+//   try {
+//     await cmd(`rm -r ${repoLocation}`);
+//   } catch (err) {
+//     throw new Error(`Failed to clean up ${repoLocation}: ${err.message}`);
+//   }
+// }
+
+async function fetchRepos({
+  organization,
+  githubUser,
+  bitbucketUser,
+  bitbucketToken,
+  workspace,
+  bitbucket,
+  githubToken,
+  exclude,
+  project,
+}) {
+  log("Start fetching repos.");
+  const query = project ? `project.name = "${project}"` : "";
+  let repos = await bitbucket.listRepositories({
+    exclude,
+    query,
+  });
+  repos = repos.map(({ slug, is_private: isPrivate }) => {
+    const repoLocation = `${process.cwd()}/repos/${slug}`;
+    const sourceUrl = `https://${bitbucketUser}:${bitbucketToken}@bitbucket.org/${workspace}/${slug}`;
+    const destinationUrl = isNotEmpty(organization)
+      ? `https://${githubToken}@github.com/${organization}/${slug}.git`
+      : `https://${githubToken}@github.com/${githubUser}/${slug}.git`;
+    return {
+      slug,
+      isPrivate,
+      destinationUrl,
+      repoLocation,
+      sourceUrl,
+      organization,
+    };
+  });
+  return repos;
+}
+
+async function createGithubRepo(
+  githubToken,
+  { slug, isPrivate, organization }
+) {
   try {
-    await cmd(`rm -r ${repoLocation}`);
-  } catch (error) {
-    throw new Error(`Failed to clean up ${repoLocation}: ${error.message}`);
+    if (isNotEmpty(organization)) {
+      await createOrgRepo(githubToken, organization, slug, isPrivate);
+    } else {
+      await createRepo(githubToken, slug, isPrivate);
+    }
+  } catch (err) {
+    console.error(`Failed to create repo ${slug}: ${err.message}`);
   }
 }
 
-/**
- * Migrates repositories from Bitbucket to GitHub.
- *
- * @param {object} options - The options object for the migration.
- * @param {string} options.bitbucketUser - The Bitbucket username.
- * @param {string} options.bitbucketToken - The Bitbucket access token.
- * @param {string} options.githubUser - The GitHub username.
- * @param {string} options.githubToken - The GitHub access token.
- * @param {string} options.workspace - The Bitbucket workspace.
- * @param {string} [options.organization] - The GitHub organization to migrate the repositories to.
- * @param {string[]} [options.exclude] - A list of repository slugs to exclude from the migration.
- *
- * @throws {Error} Throws an error if the migration fails.
- */
+async function cloneRepo({ slug, repoLocation, sourceUrl }) {
+  try {
+    await git.cloneRepository(sourceUrl, repoLocation, { mirror: true });
+    debug(`Repo ${slug} is cloned.`);
+  } catch (err) {
+    console.error(`Failed to clone repository ${slug}: ${error.message}`);
+    throw new Error(`Failed to [clone repository] ${slug}: ${err.message}`);
+  }
+}
+
+function pushRepo({ slug, destinationUrl, repoLocation }) {
+  try {
+    debug(`Repo ${slug} pushing operation started.`);
+    git.setPushUrlAndPush(destinationUrl, repoLocation);
+    success(`Repo ${slug} pushed successfully.`);
+    // cleanUp(process.cwd());
+  } catch (err) {
+    throw new Error(`Failed to push repository ${slug}: ${err.message}`);
+  }
+}
+
+async function cloneRepos(repos) {
+  if (!Array.isArray(repos)) {
+    throw new Error("repos argument must be an array");
+  }
+
+  await Promise.all(
+    repos.map(({ slug, repoLocation, sourceUrl }) =>
+      cloneRepo({ slug, repoLocation, sourceUrl })
+    )
+  );
+}
+
+function pushGithubRepos(repos) {
+  const delay = 20;
+  let count = 0;
+  repos.forEach((repo) => {
+    count += 1;
+    pushRepo(repo);
+    if (count % delay === 0) {
+      debug(`
+        Delaying for 20 seconds after pushing ${count} repositories.
+      `);
+      setTimeout(() => {
+        debug(`
+          Resuming after delay for ${delay} repositories.
+        `);
+      }, 20000);
+    }
+  });
+}
+
+async function createGithubRepos(githubToken, repos) {
+  if (!Array.isArray(repos)) {
+    throw new Error("repos argument must be an array");
+  }
+
+  await Promise.all(
+    repos.map(({ slug, isPrivate, organization }) =>
+      createGithubRepo(githubToken, { slug, isPrivate, organization })
+    )
+  );
+}
+
 async function migrate(options) {
   validateOptions(options);
 
@@ -68,50 +160,74 @@ async function migrate(options) {
     bitbucketUser,
     bitbucketToken,
     githubUser,
-    githubToken,
+    githubToken, // const delay = 5; // Add delay after every 10 repositories
+    // let count = 0;
     workspace,
     organization = "",
     exclude = [],
-    project,
+    project = null,
   } = options;
 
-  const bitbucket = new Bitbucket(bitbucketUser, bitbucketToken, workspace);
-  const github = new Github(githubToken);
-  const reposList = await bitbucket.listRepositories({
-    exclude,
-    q: `project.name = ${project}`,
-  });
-  const migrations = reposList.map(async ({ slug, isPrivate }) => {
-    try {
-      const repoLocation = `./repos/${slug}`;
-      const sourceUrl = `https://${bitbucketUser}:${bitbucketToken}@bitbucket.org/${workspace}/${slug}`;
-      const destinationUrl = isNotEmpty(organization)
-        ? `https://${githubToken}@github.com/${organization}/${slug}.git`
-        : `https://${githubToken}@github.com/${githubUser}/${slug}.git`;
-      log(`Cloning: ${slug}`);
-      await git.cloneRepository(sourceUrl, repoLocation, { mirror: true });
-      process.chdir(repoLocation);
-      if (isNotEmpty(organization)) {
-        await github.createOrgRepo(organization, slug, isPrivate);
-      } else {
-        await github.createUserRepo(slug, { isPrivate, isTemplate: false });
-      }
-      await cmd(
-        `git remote set-url --push origin ${destinationUrl} && git push --mirror`
-      );
-      await cleanUp(process.cwd());
-    } catch (error) {
-      fail(`Failed to migrate repository ${slug}: ${error.message}`);
-      // throw new Error(`Failed to migrate repository ${slug}: ${error.message}`);
-    }
-  });
-
   try {
-    await Promise.all(migrations);
-    success("Migration completed successfully");
-  } catch (error) {
-    throw new Error(`Migration failed: ${error.message}`);
+    const bitbucket = new Bitbucket(bitbucketUser, bitbucketToken, workspace);
+
+    log(`Migration Stepes:
+    1. Fetching Bitbuckit Repos. "Current"
+    2. Creating Repositories on GitHub.
+    3. Pushing Repositories on GitHub.
+    4. Cleanning Up.
+    `);
+    const reposList = await fetchRepos({
+      organization,
+      githubUser,
+      bitbucketUser,
+      bitbucketToken,
+      workspace,
+      bitbucket,
+      githubToken,
+      exclude,
+      project,
+    });
+    log(`Migration Stepes:
+    1. ${success(`Fetching Bitbucket Repositories. "Done"`)}
+    2. Creating Repositories on GitHub. "Current"
+    3. Cloning Repositories to /repos.
+    4. Pushing Repositories on GitHub.
+    `);
+    createGithubRepos(githubToken, reposList)
+      .then(() => {
+        log(`Migration Stepes:
+        1. ${success(`Fetching Bitbucket Repositories. "Done"`)}
+        2. ${success(`Creating Repositories on GitHub. "Done"`)}
+        3. Cloning Repositories to /repos. "Current"
+        3. Pushing Repositories on GitHub.
+        `);
+        return cloneRepos(reposList);
+      })
+      .then(() => {
+        log(`Migration Stepes:
+        1. ${success(`Fetching Bitbucket Repositories. "Done"`)}
+        2. ${success(`Creating Repositories on GitHub. "Done"`)}
+        3. ${success(`Cloning Repositories to /repos. "Current"`)}
+        4. Pushing Repositories on GitHub. "Current"
+        `);
+        return pushGithubRepos(reposList);
+      })
+      .then(() => {
+        log(`Migration Stepes:
+        1. ${success(`Fetching Bitbucket Repositories. "Done"`)}
+        2. ${success(`Creating Repositories on GitHub. "Done"`)}
+        3. ${success(`Cloning Repositories to /repos. "Current"`)}
+        4. ${success(`Pushing Repositories on GitHub. "Current"`)}
+        `);
+        success("Repositories Migrated Successfully");
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+  } catch (err) {
+    throw new Error(err.message);
   }
 }
 
-module.exports = { migrate, cleanUp, validateOptions };
+module.exports = { migrate, validateOptions };
