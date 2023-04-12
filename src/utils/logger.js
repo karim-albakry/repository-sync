@@ -29,7 +29,7 @@ function error(message) {
  * @param {string} message - The message to log.
  */
 function debug(message) {
-  console.debug(kleur.blue(`[DEBUG] ${message}`));
+  console.debug(kleur.magenta(`[DEBUG] ${message}`));
 }
 
 /**
