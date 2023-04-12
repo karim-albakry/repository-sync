@@ -8,7 +8,7 @@ To get started, clone the repository and run the following command:
 
 npm install
 
-##🚀 Usage
+## 🚀 Usage
 
 Using our tool is a breeze! Simply run the following command:
 
