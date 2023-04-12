@@ -7,7 +7,6 @@ Are you looking to move your repositories from Bitbucket to GitHub? Look no furt
 To get started, clone the repository and run the following command:
 
 npm install
-
 ## 🚀 Usage
 
 Using our tool is a breeze! Simply run the following command:
