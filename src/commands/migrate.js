@@ -5,14 +5,6 @@ const { createOrgRepo, createRepo } = require("../models/github");
 const Bitbucket = require("../models/bitbucket");
 const { success, log, debug, error } = require("../utils/logger");
 
-/**
- * Validates the options object for the migration.
- *
- * @param {object} options - The options object for the migration.
- *
- * @throws {Error} Throws an error if the options object is not valid.
- */
-
 const optionsSchema = Joi.object({
   bitbucketUser: Joi.string().required(),
   bitbucketToken: Joi.string().required(),
@@ -30,14 +22,6 @@ function validateOptions(options) {
     throw new Error(`Invalid options: ${err.message}`);
   }
 }
-
-// async function cleanUp(repoLocation) {
-//   try {
-//     await cmd(`rm -r ${repoLocation}`);
-//   } catch (err) {
-//     throw new Error(`Failed to clean up ${repoLocation}: ${err.message}`);
-//   }
-// }
 
 async function fetchRepos({
   organization,
@@ -104,7 +88,6 @@ function pushRepo({ slug, destinationUrl, repoLocation }) {
     debug(`Repo ${slug} pushing operation started.`);
     git.setPushUrlAndPush(destinationUrl, repoLocation);
     success(`Repo ${slug} pushed successfully.`);
-    // cleanUp(process.cwd());
   } catch (err) {
     throw new Error(`Failed to push repository ${slug}: ${err.message}`);
   }
@@ -160,8 +143,7 @@ async function migrate(options) {
     bitbucketUser,
     bitbucketToken,
     githubUser,
-    githubToken, // const delay = 5; // Add delay after every 10 repositories
-    // let count = 0;
+    githubToken,
     workspace,
     organization = "",
     exclude = [],
@@ -230,4 +212,10 @@ async function migrate(options) {
   }
 }
 
-module.exports = { migrate, validateOptions };
+module.exports = {
+  migrate,
+  validateOptions,
+  createGithubRepo,
+  cloneRepo,
+  pushRepo,
+};

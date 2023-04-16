@@ -18,4 +18,4 @@ program
     await migrate(options);
   });
 
-program.parse(process.argv);
+module.exports = { program };
