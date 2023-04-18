@@ -6,13 +6,13 @@ This tool syncs repositories between Bitbucket and GitHub, allowing you to migra
 
 1. Clone this repository:
 
-git clone https://github.com/karim-albakry/Repository-Sync.git
+git clone https://github.com/karim-albakry/repository-sync.git
 
 
 2. Change to the project directory:
 
 ```
-cd Repository-Sync
+cd repository-sync
 ````
 
 3. Install the dependencies:
