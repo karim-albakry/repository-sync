@@ -1,41 +1,80 @@
-const executeShellCommand = require('../../src/utils/cmd');
+const { execSync } = require("child_process");
+const executeShellCommand = require("../../src/utils/cmd");
+const { error, log } = require("../../src/utils/logger");
 
-describe('executeShellCommand', () => {
-  describe('with valid parameters', () => {
-    test('should execute the command and log the output', async () => {
-      const command = 'echo "Hello World"';
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-      await executeShellCommand(command);
-      expect(consoleSpy).toHaveBeenCalledWith(`[INFO] Stdout: Hello World\n`);
-      consoleSpy.mockRestore();
-    });
+jest.mock("child_process");
+jest.mock("../../src/utils/logger");
+
+describe("executeShellCommand", () => {
+  afterEach(() => {
+    execSync.mockClear();
+    error.mockClear();
+    log.mockClear();
   });
 
-  describe('with invalid parameters', () => {
-    test('should throw an error if command is not a string', async () => {
-      const command = 123;
-      await expect(executeShellCommand(command)).rejects.toThrow('Command must be a string');
-    });
+  test("should execute a valid shell command", () => {
+    const command = "echo 'hello'";
+    const stdout = "hello\n";
+    execSync.mockReturnValueOnce(Buffer.from(stdout));
 
-    test('should throw an error if command is empty', async () => {
-      const command = '';
-      await expect(executeShellCommand(command)).rejects.toThrow('Command must be not empty');
-    });
+    executeShellCommand(command);
 
-    test('should throw an error if options is not an object', async () => {
-      const command = 'echo "Hello World"';
-      const options = 'invalid';
-      await expect(executeShellCommand(command, options)).rejects.toThrow('Options must be an object');
+    expect(execSync).toHaveBeenCalledWith(command, {
+      cwd: process.cwd(),
+      timeout: 0,
     });
+    expect(log).toHaveBeenCalledWith(`Stdout: ${stdout}`);
   });
 
-  describe('when the command fails', () => {
-    test('should log the error message', async () => {
-      const command = 'ls invalid_dir';
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      await executeShellCommand(command);
-      expect(consoleSpy).toHaveBeenCalledWith("[ERROR] Error: Command failed: ls invalid_dir"+"\n"+`ls: cannot access 'invalid_dir': No such file or directory\n`);
-      consoleSpy.mockRestore();
+  test("should throw an error if command is not a string", () => {
+    const command = 42;
+
+    expect(() => executeShellCommand(command)).toThrow(
+      "Command must be a string"
+    );
+  });
+
+  test("should throw an error if command is an empty string", () => {
+    const command = "";
+
+    expect(() => executeShellCommand(command)).toThrow(
+      "Command must be not empty"
+    );
+  });
+
+  test("should throw an error if options is not an object", () => {
+    const command = "echo 'hello'";
+    const options = "invalid";
+
+    expect(() => executeShellCommand(command, options)).toThrow(
+      "Options must be an object"
+    );
+  });
+
+  test("should use provided options when executing command", () => {
+    const command = "echo 'hello'";
+    const stdout = "hello\n";
+    const options = { cwd: "/tmp", timeout: 5000 };
+    execSync.mockReturnValueOnce(Buffer.from(stdout));
+
+    executeShellCommand(command, options);
+
+    expect(execSync).toHaveBeenCalledWith(command, options);
+    expect(log).toHaveBeenCalledWith(`Stdout: ${stdout}`);
+  });
+
+  test("should throw an error and log stderr if command execution fails", () => {
+    const command = "non_existent_command";
+    const stderr = "command not found: non_existent_command\n";
+    const errorObject = new Error();
+    errorObject.stderr = Buffer.from(stderr);
+    execSync.mockImplementationOnce(() => {
+      throw errorObject;
     });
+
+    expect(() => executeShellCommand(command)).toThrow(
+      `Failed to execute command: ${stderr}`
+    );
+    expect(error).toHaveBeenCalledWith(`Stderr: ${stderr}`);
   });
 });

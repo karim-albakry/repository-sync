@@ -41,8 +41,8 @@ const setPushUrlAndPush = (
     execSync("git push --mirror", { cwd: workingDirectory });
 
     console.log("Pushed to remote successfully.");
-  } catch (error) {
-    if (error.stderr.includes("rate limit exceeded")) {
+  } catch (err) {
+    if (err.stderr.includes("rate limit exceeded")) {
       if (retryCount < maxRetries) {
         console.log(
           `Rate limit exceeded. Retrying in ${waitTime / 1000} seconds.`
@@ -54,7 +54,7 @@ const setPushUrlAndPush = (
         console.error("Max retries exceeded. Aborting.");
       }
     } else {
-      console.error(`Error: ${error.stderr}`);
+      console.error(`Error: ${err.stderr}`);
     }
   }
 };

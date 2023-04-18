@@ -1,54 +1,61 @@
-const kleur = require('kleur');
-const logger = require('../../src/utils/logger');
+const kleur = require("kleur");
+const logger = require("../../src/utils/logger");
 
-describe('logger', () => {
-  describe('log', () => {
-    test('should log an info message', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-      const message = 'This is an info message';
-      logger.log(message);
-      expect(consoleSpy).toHaveBeenCalledWith(`[INFO] ${message}`);
-      consoleSpy.mockRestore();
-    });
+describe("logger", () => {
+  let consoleLogSpy;
+  let consoleErrorSpy;
+  let consoleDebugSpy;
+
+  beforeEach(() => {
+    consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    consoleDebugSpy = jest.spyOn(console, "debug").mockImplementation(() => {});
   });
 
-  describe('error', () => {
-    test('should log an error message', () => {
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      const message = 'This is an error message';
-      logger.error(message);
-      expect(consoleSpy).toHaveBeenCalledWith(`[ERROR] ${message}`);
-      consoleSpy.mockRestore();
-    });
+  afterEach(() => {
+    consoleLogSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+    consoleDebugSpy.mockRestore();
   });
 
-  describe('debug', () => {
-    test('should log a debug message in blue color', () => {
-      const consoleSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
-      const message = 'This is a debug message';
-      logger.debug(message);
-      expect(consoleSpy).toHaveBeenCalledWith(kleur.blue(`[DEBUG] ${message}`));
-      consoleSpy.mockRestore();
-    });
+  test("should log an informational message", () => {
+    const message = "Test info message";
+    logger.log(message);
+
+    expect(consoleLogSpy).toHaveBeenCalledWith(kleur.blue(`[INFO] ${message}`));
   });
 
-  describe('success', () => {
-    test('should log a success message with green background', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-      const message = 'This is a success message';
-      logger.success(message);
-      expect(consoleSpy).toHaveBeenCalledWith(kleur.bgGreen().bold(`[INFO] ${message}`));
-      consoleSpy.mockRestore();
-    });
+  test("should log an error message", () => {
+    const message = "Test error message";
+    logger.error(message);
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(`[ERROR] ${message}`);
   });
 
-  describe('fail', () => {
-    test('should log a fail message with red background', () => {
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-      const message = 'This is a fail message';
-      logger.fail(message);
-      expect(consoleSpy).toHaveBeenCalledWith(kleur.bgRed().bold(`[INFO] ${message}`));
-      consoleSpy.mockRestore();
-    });
+  test("should log a debug message", () => {
+    const message = "Test debug message";
+    logger.debug(message);
+
+    expect(consoleDebugSpy).toHaveBeenCalledWith(
+      kleur.magenta(`[DEBUG] ${message}`)
+    );
+  });
+
+  test("should log a success message", () => {
+    const message = "Test success message";
+    logger.success(message);
+
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      kleur.bgGreen().bold(`[INFO] ${message}`)
+    );
+  });
+
+  test("should log a failure message", () => {
+    const message = "Test failure message";
+    logger.fail(message);
+
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      kleur.bgRed().bold(`[ERROR] ${message}`)
+    );
   });
 });
