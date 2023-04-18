@@ -2,8 +2,9 @@
   "name": "repo-migration-tool",
   "version": "1.0.0",
   "description": "",
-  "main": "parse.js",
+  "main": "src/parse.js",
   "scripts": {
+    "start": "node src/parse.js",
     "test": "jest --detectOpenHandles"
   },
   "repository": {
