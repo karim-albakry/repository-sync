@@ -63,11 +63,16 @@ class BitbucketClient {
     if (typeof options !== "object") {
       throw new Error("Options must be an object");
     }
-    const { query = "", exclude = [] } = options;
+    const { query = "", exclude = [], specificRepos = [] } = options;
 
     const repos = await this.getValues(1, query);
 
-    return repos.filter(({ slug }) => !exclude.includes(slug));
+    return repos.filter(({ slug }) => {
+      const excludeRepo = exclude.includes(slug);
+      const includeRepo =
+        specificRepos.length === 0 || specificRepos.includes(slug);
+      return !excludeRepo && includeRepo;
+    });
   }
 }
 

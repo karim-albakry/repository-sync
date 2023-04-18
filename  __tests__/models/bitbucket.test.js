@@ -56,4 +56,24 @@ describe("BitbucketClient", () => {
       "Options must be an object"
     );
   });
+
+  test("should fetch only specified repositories", async () => {
+    const apiUrl = "https://api.bitbucket.org/2.0";
+    const mockApiResponse = {
+      values: [{ slug: "repo1" }, { slug: "repo2" }, { slug: "repo3" }],
+      next: null,
+    };
+
+    nock(apiUrl)
+      .get(`/repositories/${bitbucketWorkspaceName}`)
+      .query({ page: 1, q: "" })
+      .reply(200, mockApiResponse);
+
+    const options = {
+      specificRepos: ["repo1", "repo3"],
+    };
+
+    const repos = await client.listRepositories(options);
+    expect(repos).toEqual([{ slug: "repo1" }, { slug: "repo3" }]);
+  });
 });
