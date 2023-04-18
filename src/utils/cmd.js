@@ -37,39 +37,5 @@ function executeShellCommand(command, options = {}) {
     throw new Error(`Failed to execute command: ${stderr}`);
   }
 }
-// const { promisify } = require("util");
-// const { exec } = require("child_process");
-// const { error, log } = require("./logger");
-// const { isNotEmpty } = require("./validator");
-
-// async function executeShellCommand(command, options = {}) {
-//   if (typeof command !== "string") {
-//     throw new Error("Command must be a string");
-//   }
-
-//   if (!isNotEmpty(command)) {
-//     throw new Error("Command must be not empty");
-//   }
-
-//   if (typeof options !== "object") {
-//     throw new Error("Options must be an object");
-//   }
-
-//   const { cwd = process.cwd(), timeout = 0 } = options;
-
-//   const execPromise = promisify(exec);
-
-//   try {
-//     const { stdout, stderr } = await execPromise(command, { cwd, timeout });
-//     if (stderr) {
-//       error(`Stderr: ${stderr}`);
-//       throw new Error(`Command Error: ${stderr}`);
-//     }
-//     log(`Stdout: ${stdout}`);
-//   } catch (err) {
-//     error(`Error: ${err.message}`);
-//     throw new Error(`Failed to execute command: ${err.message}`);
-//   }
-// }
 
 module.exports = executeShellCommand;

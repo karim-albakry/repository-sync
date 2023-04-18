@@ -5,14 +5,6 @@ const { createOrgRepo, createRepo } = require("../models/github");
 const Bitbucket = require("../models/bitbucket");
 const { success, log, debug, error } = require("../utils/logger");
 
-/**
- * Validates the options object for the migration.
- *
- * @param {object} options - The options object for the migration.
- *
- * @throws {Error} Throws an error if the options object is not valid.
- */
-
 const optionsSchema = Joi.object({
   bitbucketUser: Joi.string().required(),
   bitbucketToken: Joi.string().required(),
@@ -22,6 +14,7 @@ const optionsSchema = Joi.object({
   exclude: Joi.array().items(Joi.string()),
   organization: Joi.string().allow(""),
   project: Joi.string().allow(null),
+  specificRepos: Joi.array().items(Joi.string()),
 });
 
 function validateOptions(options) {
@@ -30,14 +23,6 @@ function validateOptions(options) {
     throw new Error(`Invalid options: ${err.message}`);
   }
 }
-
-// async function cleanUp(repoLocation) {
-//   try {
-//     await cmd(`rm -r ${repoLocation}`);
-//   } catch (err) {
-//     throw new Error(`Failed to clean up ${repoLocation}: ${err.message}`);
-//   }
-// }
 
 async function fetchRepos({
   organization,
@@ -49,10 +34,11 @@ async function fetchRepos({
   githubToken,
   exclude,
   project,
+  specificRepos,
 }) {
-  log("Start fetching repos.");
   const query = project ? `project.name = "${project}"` : "";
   let repos = await bitbucket.listRepositories({
+    specificRepos,
     exclude,
     query,
   });
@@ -104,7 +90,6 @@ function pushRepo({ slug, destinationUrl, repoLocation }) {
     debug(`Repo ${slug} pushing operation started.`);
     git.setPushUrlAndPush(destinationUrl, repoLocation);
     success(`Repo ${slug} pushed successfully.`);
-    // cleanUp(process.cwd());
   } catch (err) {
     throw new Error(`Failed to push repository ${slug}: ${err.message}`);
   }
@@ -160,23 +145,23 @@ async function migrate(options) {
     bitbucketUser,
     bitbucketToken,
     githubUser,
-    githubToken, // const delay = 5; // Add delay after every 10 repositories
-    // let count = 0;
+    githubToken,
     workspace,
     organization = "",
     exclude = [],
     project = null,
+    specificRepos = [],
   } = options;
 
   try {
     const bitbucket = new Bitbucket(bitbucketUser, bitbucketToken, workspace);
 
     log(`Migration Stepes:
-    1. Fetching Bitbuckit Repos. "Current"
+    1. Fetching Bitbuckit Repos.
     2. Creating Repositories on GitHub.
     3. Pushing Repositories on GitHub.
-    4. Cleanning Up.
     `);
+    log(`1. Fetching Bitbuckit Repos.`);
     const reposList = await fetchRepos({
       organization,
       githubUser,
@@ -187,39 +172,19 @@ async function migrate(options) {
       githubToken,
       exclude,
       project,
+      specificRepos,
     });
-    log(`Migration Stepes:
-    1. ${success(`Fetching Bitbucket Repositories. "Done"`)}
-    2. Creating Repositories on GitHub. "Current"
-    3. Cloning Repositories to /repos.
-    4. Pushing Repositories on GitHub.
-    `);
+    log(`2. Creating Repositories on GitHub. "Current"`);
     createGithubRepos(githubToken, reposList)
       .then(() => {
-        log(`Migration Stepes:
-        1. ${success(`Fetching Bitbucket Repositories. "Done"`)}
-        2. ${success(`Creating Repositories on GitHub. "Done"`)}
-        3. Cloning Repositories to /repos. "Current"
-        3. Pushing Repositories on GitHub.
-        `);
+        log(`3. Cloning Repositories to /repos. "Current"`);
         return cloneRepos(reposList);
       })
       .then(() => {
-        log(`Migration Stepes:
-        1. ${success(`Fetching Bitbucket Repositories. "Done"`)}
-        2. ${success(`Creating Repositories on GitHub. "Done"`)}
-        3. ${success(`Cloning Repositories to /repos. "Current"`)}
-        4. Pushing Repositories on GitHub. "Current"
-        `);
+        log(`4. Pushing Repositories on GitHub. "Current"`);
         return pushGithubRepos(reposList);
       })
       .then(() => {
-        log(`Migration Stepes:
-        1. ${success(`Fetching Bitbucket Repositories. "Done"`)}
-        2. ${success(`Creating Repositories on GitHub. "Done"`)}
-        3. ${success(`Cloning Repositories to /repos. "Current"`)}
-        4. ${success(`Pushing Repositories on GitHub. "Current"`)}
-        `);
         success("Repositories Migrated Successfully");
       })
       .catch((err) => {
@@ -230,4 +195,10 @@ async function migrate(options) {
   }
 }
 
-module.exports = { migrate, validateOptions };
+module.exports = {
+  migrate,
+  validateOptions,
+  createGithubRepo,
+  cloneRepo,
+  pushRepo,
+};

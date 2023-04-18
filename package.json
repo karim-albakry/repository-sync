@@ -2,9 +2,10 @@
   "name": "repo-migration-tool",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/parse.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/parse.js",
+    "test": "jest --detectOpenHandles"
   },
   "repository": {
     "type": "git",
@@ -27,12 +28,15 @@
     "kleur": "^4.1.5"
   },
   "devDependencies": {
+    "axios-mock-adapter": "^1.21.4",
     "chai": "^4.3.7",
     "eslint": "^8.37.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-config-prettier": "^8.8.0",
     "eslint-plugin-import": "^2.27.5",
     "eslint-plugin-prettier": "^4.2.1",
-    "jest": "^29.5.0"
+    "jest": "^29.5.0",
+    "nock": "^13.3.0",
+    "sinon": "^15.0.3"
   }
 }
