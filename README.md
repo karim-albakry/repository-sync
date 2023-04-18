@@ -1,4 +1,4 @@
-# Repository Sync Tool
+# Repository Sync
 
 This tool syncs repositories between Bitbucket and GitHub, allowing you to migrate repositories from a Bitbucket workspace to a GitHub user or organization account.
 
