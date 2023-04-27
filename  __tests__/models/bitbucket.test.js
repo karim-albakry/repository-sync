@@ -76,4 +76,171 @@ describe("BitbucketClient", () => {
     const repos = await client.listRepositories(options);
     expect(repos).toEqual([{ slug: "repo1" }, { slug: "repo3" }]);
   });
+
+  test("should paginate through repositories", async () => {
+    const apiUrl = "https://api.bitbucket.org/2.0";
+    const mockApiResponse1 = {
+      values: [{ slug: "repo1" }, { slug: "repo2" }],
+      next: `${apiUrl}/repositories/${bitbucketWorkspaceName}?page=2`,
+    };
+    const mockApiResponse2 = {
+      values: [{ slug: "repo3" }, { slug: "repo4" }],
+      next: null,
+    };
+
+    nock(apiUrl)
+      .get(`/repositories/${bitbucketWorkspaceName}`)
+      .query({ page: 1, q: "" })
+      .reply(200, mockApiResponse1);
+
+    nock(apiUrl)
+      .get(`/repositories/${bitbucketWorkspaceName}`)
+      .query({ page: 2, q: "" })
+      .reply(200, mockApiResponse2);
+
+    const repos = await client.listRepositories();
+    expect(repos).toEqual([
+      { slug: "repo1" },
+      { slug: "repo2" },
+      { slug: "repo3" },
+      { slug: "repo4" },
+    ]);
+  });
+
+  test("should handle API errors", async () => {
+    const apiUrl = "https://api.bitbucket.org/2.0";
+
+    nock(apiUrl)
+      .get(`/repositories/${bitbucketWorkspaceName}`)
+      .query({ page: 1, q: "" })
+      .reply(500, { error: "Internal Server Error" });
+
+    await expect(client.listRepositories()).rejects.toThrow(
+      "Error fetching repositories: Internal Server Error"
+    );
+  });
+  test("should get project key by project name", async () => {
+    const apiUrl = "https://api.bitbucket.org/2.0";
+    const mockApiResponse = {
+      values: [
+        { name: "Project1", key: "P1" },
+        { name: "Project2", key: "P2" },
+      ],
+    };
+
+    nock(apiUrl)
+      .get(`/workspaces/${bitbucketWorkspaceName}/projects`)
+      .reply(200, mockApiResponse);
+
+    const projectKey = await client.getProjectKeyByName("Project1");
+    console.log("Expected projects data:", mockApiResponse); // Use mockApiResponse instead of MOCK_PROJECTS_DATA
+
+    expect(projectKey).toEqual("P1");
+  });
+
+  test("should return null if project not found", async () => {
+    const apiUrl = "https://api.bitbucket.org/2.0";
+    const mockApiResponse = {
+      values: [
+        { name: "Project1", key: "P1" },
+        { name: "Project2", key: "P2" },
+      ],
+    };
+
+    nock(apiUrl)
+      .get(`/workspaces/${bitbucketWorkspaceName}/projects`)
+      .reply(200, mockApiResponse);
+
+    const projectKey = await client.getProjectKeyByName(
+      bitbucketWorkspaceName,
+      "NonexistentProject"
+    );
+    expect(projectKey).toBeNull();
+  });
+
+  test("should create a repository", async () => {
+    const apiUrl = "https://api.bitbucket.org/2.0";
+    const projectName = "Project1";
+    const projectKey = "P1";
+    const repoName = "NewRepo";
+    const isPrivate = true;
+
+    const mockProjectsApiResponse = {
+      values: [
+        { name: "Project1", key: "P1" },
+        { name: "Project2", key: "P2" },
+      ],
+    };
+
+    const mockRepoCreationResponse = {
+      links: { html: { href: "https://bitbucket.org/test-workspace/newrepo" } },
+    };
+
+    const getProjectKeyByNameMock = jest
+      .spyOn(client, "getProjectKeyByName")
+      .mockResolvedValue(projectKey);
+
+    nock(apiUrl)
+      .get(`/workspaces/${bitbucketWorkspaceName}/projects`)
+      .reply(200, mockProjectsApiResponse);
+
+    nock(apiUrl)
+      .post(`/repositories/${bitbucketWorkspaceName}/${repoName}`)
+      .reply(200, mockRepoCreationResponse);
+
+    const createRepoSpy = jest.spyOn(console, "log").mockImplementation();
+    const errorSpy = jest.spyOn(console, "error").mockImplementation();
+
+    await client.createBitbucketRepo(
+      bitbucketUser,
+      repoName,
+      isPrivate,
+      bitbucketWorkspaceName,
+      projectName
+    );
+
+    expect(createRepoSpy).toHaveBeenCalledWith(
+      `Repository created: ${mockRepoCreationResponse.links.html.href}`
+    );
+    expect(errorSpy).not.toHaveBeenCalled();
+
+    createRepoSpy.mockRestore();
+    errorSpy.mockRestore();
+    getProjectKeyByNameMock.mockRestore();
+  });
+
+  test("should not create a repository if project not found", async () => {
+    const apiUrl = "https://api.bitbucket.org/2.0";
+    const projectName = "NonexistentProject";
+    const repoName = "NewRepo";
+    const isPrivate = true;
+
+    const mockProjectsApiResponse = {
+      values: [
+        { name: "Project1", key: "P1" },
+        { name: "Project2", key: "P2" },
+      ],
+    };
+
+    nock(apiUrl)
+      .get(`/workspaces/${bitbucketWorkspaceName}/projects`)
+      .reply(200, mockProjectsApiResponse);
+
+    const createRepoSpy = jest.spyOn(console, "log").mockImplementation();
+    const errorSpy = jest.spyOn(console, "error").mockImplementation();
+
+    await client.createBitbucketRepo(
+      bitbucketUser,
+      repoName,
+      isPrivate,
+      bitbucketWorkspaceName,
+      projectName
+    );
+
+    expect(createRepoSpy).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(`Project not found: ${projectName}`);
+
+    createRepoSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
 });

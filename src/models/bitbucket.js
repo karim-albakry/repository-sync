@@ -1,4 +1,5 @@
 const { Bitbucket } = require("bitbucket");
+const axios = require("axios");
 
 /**
  * A class for interacting with the Bitbucket API.
@@ -21,6 +22,29 @@ class BitbucketClient {
     };
     this.bitbucket = new Bitbucket(clientOptions);
     this.workspaceName = bitbucketWorkspaceName;
+
+    this.getProjectKeyByName = (function () {
+      const secureToken = bitbucketPass;
+
+      return async function (projectName) {
+        try {
+          const response = await axios.get(
+            `https://api.bitbucket.org/2.0/workspaces/${this.workspaceName}/projects`,
+            {
+              headers: {
+                Authorization: `Bearer ${secureToken}`,
+              },
+            }
+          );
+          const projects = response.data.values;
+          const project = projects.find((p) => p.name === projectName);
+          return project ? project.key : null;
+        } catch (error) {
+          console.error(`Error fetching projects: ${error.message}`);
+          return null;
+        }
+      };
+    })();
 
     /**
      * Retrieves a list of repositories from the Bitbucket API.
@@ -60,19 +84,56 @@ class BitbucketClient {
    * @memberof BitbucketClient
    */
   async listRepositories(options = {}) {
-    if (typeof options !== "object") {
-      throw new Error("Options must be an object");
+    try {
+      if (typeof options !== "object") {
+        throw new Error("Options must be an object");
+      }
+      const { query = "", exclude = [], specificRepos = [] } = options;
+
+      const repos = await this.getValues(1, query);
+
+      return repos.filter(({ slug }) => {
+        const excludeRepo = exclude.includes(slug);
+        const includeRepo =
+          specificRepos.length === 0 || specificRepos.includes(slug);
+        return !excludeRepo && includeRepo;
+      });
+    } catch (error) {
+      throw new Error(`Error fetching repositories: ${error.message}`);
     }
-    const { query = "", exclude = [], specificRepos = [] } = options;
+  }
 
-    const repos = await this.getValues(1, query);
+  async createBitbucketRepo(
+    username,
+    repoName,
+    isPrivate,
+    workspace,
+    projectName
+  ) {
+    try {
+      const projectKey = await this.getProjectKeyByName(
+        workspace || username,
+        projectName
+      );
 
-    return repos.filter(({ slug }) => {
-      const excludeRepo = exclude.includes(slug);
-      const includeRepo =
-        specificRepos.length === 0 || specificRepos.includes(slug);
-      return !excludeRepo && includeRepo;
-    });
+      if (!projectKey) {
+        console.error(`Project not found: ${projectName}`);
+        return;
+      }
+
+      console.log("Before.........");
+      const response = await this.bitbucket.repositories.create({
+        workspace: workspace || username,
+        repo_slug: repoName,
+        is_private: isPrivate,
+        _body: { project: { key: projectKey } },
+      });
+      console.log("here..............");
+
+      console.log(`Repository created: ${response.data.links.html.href}`);
+    } catch (error) {
+      console.error(`Error creating repository: ${error.message}`);
+    }
   }
 }
 
