@@ -85,4 +85,26 @@ const createRepo = async (authToken, repoName, isPrivate, retryCount = 0) => {
   }
 };
 
-module.exports = { createRepo, createOrgRepo };
+const fetchRepos = async (username, token) => {
+  try {
+    const response = await axios.get(
+      `https://api.github.com/users/${username}/repos?visibility=all`,
+      {
+        headers: {
+          Authorization: `token ${token}`,
+        },
+      }
+    );
+    const repos = response.data;
+    const repoInfo = repos.map((repo) => ({
+      name: repo.name,
+      private: repo.private,
+    }));
+    return repoInfo;
+  } catch (error) {
+    console.error(`Error fetching repositories: ${error.message}`);
+    return [];
+  }
+};
+
+module.exports = { createRepo, createOrgRepo, fetchRepos };
