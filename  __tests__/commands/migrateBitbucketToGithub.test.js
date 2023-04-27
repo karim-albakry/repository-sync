@@ -4,7 +4,7 @@ const {
   createGithubRepo,
   cloneRepo,
   pushRepo,
-} = require("../../src/commands/migrate");
+} = require("../../src/commands/migrateBitbucketToGithub");
 
 // You may need to mock your dependencies, like the GitHub and Bitbucket APIs
 // This example uses jest.mock() to mock the createRepo and createOrgRepo functions
