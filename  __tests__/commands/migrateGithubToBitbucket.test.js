@@ -27,7 +27,7 @@ describe("validateOptions", () => {
       workspace: "workspace",
       exclude: [],
       organization: "",
-      project: "some-project",
+      projectKey: "some-project",
     };
 
     expect(() => validateOptions(validOptions)).not.toThrow();
