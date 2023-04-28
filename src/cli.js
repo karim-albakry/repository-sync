@@ -35,7 +35,7 @@ program
   .requiredOption("-g, --github-user <username>", "Github username")
   .requiredOption("-gt, --github-token <token>", "Github token")
   .requiredOption("-w, --workspace <name>", "Bitbucket workspace name")
-  .requiredOption("-p, --project <name>", "Bitbucket project name")
+  .requiredOption("-pk, --project-key <name>", "Bitbucket project key")
   .option("-o, --organization <name>", "Github organization name")
   .option("-e, --exclude <names...>", "List of repository names to exclude")
   .option(

@@ -107,8 +107,8 @@ describe("CLI", () => {
       "githubToken",
       "-w",
       "workspaceName",
-      "-p",
-      "projectName",
+      "-pk",
+      "projectkey",
     ];
 
     await program.parseAsync(parseArgs);
@@ -119,7 +119,7 @@ describe("CLI", () => {
       githubUser: "githubUser",
       githubToken: "githubToken",
       workspace: "workspaceName",
-      project: "projectName",
+      projectKey: "projectkey",
       organization: undefined,
       exclude: undefined,
     });
@@ -140,8 +140,8 @@ describe("CLI", () => {
       "githubToken",
       "-w",
       "workspaceName",
-      "-p",
-      "projectName",
+      "-pk",
+      "projectkey",
       "-o",
       "organizationName",
       "-e",
@@ -157,7 +157,7 @@ describe("CLI", () => {
       githubUser: "githubUser",
       githubToken: "githubToken",
       workspace: "workspaceName",
-      project: "projectName",
+      projectKey: "projectkey",
       organization: "organizationName",
       exclude: ["repo1", "repo2"],
     });
