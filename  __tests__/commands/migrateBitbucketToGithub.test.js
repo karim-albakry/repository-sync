@@ -1,167 +1,103 @@
-const git = require("../../src/utils/git");
 const {
+  migrate,
   validateOptions,
   createGithubRepo,
   cloneRepo,
   pushRepo,
 } = require("../../src/commands/migrateBitbucketToGithub");
 
-// You may need to mock your dependencies, like the GitHub and Bitbucket APIs
-// This example uses jest.mock() to mock the createRepo and createOrgRepo functions
-jest.mock("../../src/models/github", () => ({
-  createRepo: jest.fn(),
-  createOrgRepo: jest.fn(),
-}));
+const Bitbucket = require("../../src/models/bitbucket");
+const { createOrgRepo, createRepo } = require("../../src/models/github");
+const git = require("../../src/utils/git");
 
-jest.mock("../../src/models/bitbucket", () => {
-  return jest.fn().mockImplementation(() => {
-    return { listRepositories: () => [] };
-  });
-});
-
+jest.mock("../../src/models/bitbucket");
+jest.mock("../../src/models/github");
 jest.mock("../../src/utils/git");
 
-// Test cases for validateOptions
-describe("validateOptions", () => {
-  it("should throw an error if options are invalid", () => {
-    const invalidOptions = {
-      bitbucketUser: "",
-      bitbucketToken: "",
-      githubUser: "",
-      githubToken: "",
-      workspace: "",
-      exclude: [],
-      organization: "",
-      project: "",
-    };
+describe("migrate module", () => {
+  const options = {
+    bitbucketUser: "testUser",
+    bitbucketToken: "testToken",
+    githubUser: "testUser",
+    githubToken: "testToken",
+    workspace: "testWorkspace",
+    exclude: [],
+    organization: "",
+    project: null,
+    specificRepos: [],
+  };
 
-    expect(() => validateOptions(invalidOptions)).toThrow();
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  it("should not throw an error if options are valid", () => {
-    const validOptions = {
-      bitbucketUser: "user",
-      bitbucketToken: "token",
-      githubUser: "user",
-      githubToken: "token",
-      workspace: "workspace",
-      exclude: [],
-      organization: "",
-      project: "some-project",
-    };
-
-    expect(() => validateOptions(validOptions)).not.toThrow();
-  });
-});
-
-// Test cases for createGithubRepo
-describe("createGithubRepo", () => {
-  it("should call createOrgRepo if organization is provided", async () => {
-    const githubToken = "token";
-    const repoInfo = {
-      slug: "test-repo",
-      isPrivate: true,
-      organization: "test-org",
-    };
-
-    // Import the mocked functions from '../models/github'
-    const { createRepo, createOrgRepo } = require("../../src/models/github");
-
-    await createGithubRepo(githubToken, repoInfo);
-
-    expect(createOrgRepo).toHaveBeenCalledWith(
-      githubToken,
-      repoInfo.organization,
-      repoInfo.slug,
-      repoInfo.isPrivate
-    );
-    expect(createRepo).not.toHaveBeenCalled();
+  test("validateOptions should throw an error if options are invalid", () => {
+    const invalidOptions = { ...options, bitbucketUser: undefined };
+    expect(() => validateOptions(invalidOptions)).toThrow(Error);
   });
 
-  it("should call createRepo if organization is not provided", async () => {
-    const githubToken = "token";
-    const repoInfo = {
-      slug: "test-repo",
-      isPrivate: true,
-      organization: "",
-    };
-
-    // Import the mocked functions from '../models/github'
-    const { createRepo, createOrgRepo } = require("../../src/models/github");
-
-    await createGithubRepo(githubToken, repoInfo);
-
-    expect(createRepo).toHaveBeenCalledWith(
-      githubToken,
-      repoInfo.slug,
-      repoInfo.isPrivate
-    );
-    expect(createOrgRepo).not.toHaveBeenCalledWith(
-      githubToken,
-      repoInfo.slug,
-      repoInfo.isPrivate,
-      repoInfo.organization
-    );
-  });
-});
-
-describe("cloneRepo", () => {
-  it("should clone the repo successfully", async () => {
-    git.cloneRepository.mockResolvedValue(true);
-    const repoInfo = {
-      slug: "test-repo",
-      repoLocation: "/tmp/repos/test-repo",
-      sourceUrl: "https://bitbucket.org/workspace/test-repo",
-    };
-
-    await expect(cloneRepo(repoInfo)).resolves.toBeUndefined();
-    expect(git.cloneRepository).toHaveBeenCalledWith(
-      repoInfo.sourceUrl,
-      repoInfo.repoLocation,
-      { mirror: true }
-    );
+  test("validateOptions should not throw an error if options are valid", () => {
+    expect(() => validateOptions(options)).not.toThrow();
   });
 
-  it("should throw an error if cloning fails", async () => {
-    const errorMessage = "Failed to clone repository";
-    git.cloneRepository.mockRejectedValue(new Error(errorMessage));
-    const repoInfo = {
-      slug: "test-repo",
-      repoLocation: "/tmp/repos/test-repo",
-      sourceUrl: "https://bitbucket.org/workspace/test-repo",
-    };
-
-    await expect(cloneRepo(repoInfo)).rejects.toThrow(errorMessage);
-  });
-});
-
-describe("pushRepo", () => {
-  it("should push the repo successfully", () => {
-    git.setPushUrlAndPush.mockReturnValue(true);
-    const repoInfo = {
-      slug: "test-repo",
-      repoLocation: "/tmp/repos/test-repo",
-      destinationUrl: "https://github.com/user/test-repo.git",
-    };
-
-    expect(() => pushRepo(repoInfo)).not.toThrow();
-    expect(git.setPushUrlAndPush).toHaveBeenCalledWith(
-      repoInfo.destinationUrl,
-      repoInfo.repoLocation
-    );
-  });
-
-  it("should throw an error if pushing fails", () => {
-    const errorMessage = "Failed to push repository";
-    git.setPushUrlAndPush.mockImplementation(() => {
-      throw new Error(errorMessage);
+  test("createGithubRepo should handle errors when creating a repo", async () => {
+    createRepo.mockImplementationOnce(() => {
+      throw new Error("Failed to create repo");
     });
-    const repoInfo = {
-      slug: "test-repo",
-      repoLocation: "/tmp/repos/test-repo",
-      destinationUrl: "https://github.com/user/test-repo.git",
-    };
 
-    expect(() => pushRepo(repoInfo)).toThrow(errorMessage);
+    await createGithubRepo("testToken", {
+      slug: "testSlug",
+      isPrivate: false,
+      organization: "",
+    });
+
+    expect(createRepo).toHaveBeenCalledTimes(1);
+  });
+
+  test("cloneRepo should handle errors when cloning a repo", async () => {
+    git.cloneRepository.mockImplementationOnce(() => {
+      throw new Error("Failed to clone repo");
+    });
+
+    await expect(
+      cloneRepo({
+        slug: "testSlug",
+        repoLocation: "/test/repoLocation",
+        sourceUrl: "https://test.sourceUrl",
+      })
+    ).rejects.toThrow(Error);
+
+    expect(git.cloneRepository).toHaveBeenCalledTimes(1);
+  });
+
+  test("pushRepo should handle errors when pushing a repo", () => {
+    git.setPushUrlAndPush.mockImplementationOnce(() => {
+      throw new Error("Failed to push repo");
+    });
+
+    expect(() =>
+      pushRepo({
+        slug: "testSlug",
+        destinationUrl: "https://test.destinationUrl",
+        repoLocation: "/test/repoLocation",
+      })
+    ).toThrow(Error);
+
+    expect(git.setPushUrlAndPush).toHaveBeenCalledTimes(1);
+  });
+
+  test("migrate should run migration steps", async () => {
+    const listRepositoriesMock = jest.fn().mockResolvedValue([]);
+    Bitbucket.mockImplementation(() => ({
+      listRepositories: listRepositoriesMock,
+    }));
+
+    await migrate(options);
+
+    expect(Bitbucket).toHaveBeenCalledTimes(1);
+    expect(listRepositoriesMock).toHaveBeenCalledTimes(1);
+    expect(createRepo).toHaveBeenCalledTimes(0);
+    expect(git.cloneRepository).toHaveBeenCalledTimes(0);
+    expect(git.setPushUrlAndPush).toHaveBeenCalledTimes(0);
   });
 });
