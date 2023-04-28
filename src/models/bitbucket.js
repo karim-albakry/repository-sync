@@ -1,6 +1,12 @@
 const { Bitbucket } = require("bitbucket");
 const axios = require("axios");
 
+function toValidSlug(repoName) {
+  return repoName
+    .toLowerCase()
+    .replace(/[^a-z0-9-_.]/g, "-")
+    .replace(/-{2,}/g, "-");
+}
 /**
  * A class for interacting with the Bitbucket API.
  * @class BitbucketClient
@@ -108,30 +114,21 @@ class BitbucketClient {
     repoName,
     isPrivate,
     workspace,
-    projectName
+    projectKey
   ) {
     try {
-      const projectKey = await this.getProjectKeyByName(
-        workspace || username,
-        projectName
-      );
-
-      if (!projectKey) {
-        console.error(`Project not found: ${projectName}`);
-        return;
-      }
-
-      console.log("Before.........");
+      const validRepoSlug = toValidSlug(repoName);
       const response = await this.bitbucket.repositories.create({
         workspace: workspace || username,
-        repo_slug: repoName,
+        repo_slug: validRepoSlug,
         is_private: isPrivate,
         _body: { project: { key: projectKey } },
       });
-      console.log("here..............");
 
       console.log(`Repository created: ${response.data.links.html.href}`);
     } catch (error) {
+      console.error(repoName);
+      console.error(error);
       console.error(`Error creating repository: ${error.message}`);
     }
   }

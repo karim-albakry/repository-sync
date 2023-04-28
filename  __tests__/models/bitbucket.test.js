@@ -159,34 +159,17 @@ describe("BitbucketClient", () => {
   });
 
   test("should create a repository", async () => {
-    const apiUrl = "https://api.bitbucket.org/2.0";
-    const projectName = "Project1";
     const projectKey = "P1";
     const repoName = "NewRepo";
     const isPrivate = true;
-
-    const mockProjectsApiResponse = {
-      values: [
-        { name: "Project1", key: "P1" },
-        { name: "Project2", key: "P2" },
-      ],
-    };
 
     const mockRepoCreationResponse = {
       links: { html: { href: "https://bitbucket.org/test-workspace/newrepo" } },
     };
 
-    const getProjectKeyByNameMock = jest
-      .spyOn(client, "getProjectKeyByName")
-      .mockResolvedValue(projectKey);
-
-    nock(apiUrl)
-      .get(`/workspaces/${bitbucketWorkspaceName}/projects`)
-      .reply(200, mockProjectsApiResponse);
-
-    nock(apiUrl)
-      .post(`/repositories/${bitbucketWorkspaceName}/${repoName}`)
-      .reply(200, mockRepoCreationResponse);
+    const createRepoMock = jest
+      .spyOn(client.bitbucket.repositories, "create")
+      .mockResolvedValue({ data: mockRepoCreationResponse });
 
     const createRepoSpy = jest.spyOn(console, "log").mockImplementation();
     const errorSpy = jest.spyOn(console, "error").mockImplementation();
@@ -196,7 +179,7 @@ describe("BitbucketClient", () => {
       repoName,
       isPrivate,
       bitbucketWorkspaceName,
-      projectName
+      projectKey
     );
 
     expect(createRepoSpy).toHaveBeenCalledWith(
@@ -206,41 +189,6 @@ describe("BitbucketClient", () => {
 
     createRepoSpy.mockRestore();
     errorSpy.mockRestore();
-    getProjectKeyByNameMock.mockRestore();
-  });
-
-  test("should not create a repository if project not found", async () => {
-    const apiUrl = "https://api.bitbucket.org/2.0";
-    const projectName = "NonexistentProject";
-    const repoName = "NewRepo";
-    const isPrivate = true;
-
-    const mockProjectsApiResponse = {
-      values: [
-        { name: "Project1", key: "P1" },
-        { name: "Project2", key: "P2" },
-      ],
-    };
-
-    nock(apiUrl)
-      .get(`/workspaces/${bitbucketWorkspaceName}/projects`)
-      .reply(200, mockProjectsApiResponse);
-
-    const createRepoSpy = jest.spyOn(console, "log").mockImplementation();
-    const errorSpy = jest.spyOn(console, "error").mockImplementation();
-
-    await client.createBitbucketRepo(
-      bitbucketUser,
-      repoName,
-      isPrivate,
-      bitbucketWorkspaceName,
-      projectName
-    );
-
-    expect(createRepoSpy).not.toHaveBeenCalled();
-    expect(errorSpy).toHaveBeenCalledWith(`Project not found: ${projectName}`);
-
-    createRepoSpy.mockRestore();
-    errorSpy.mockRestore();
+    createRepoMock.mockRestore();
   });
 });
