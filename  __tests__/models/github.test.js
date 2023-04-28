@@ -3,7 +3,7 @@ const axios = require("axios");
 const {
   createRepo,
   createOrgRepo,
-  fetchRepos,
+  listRepos,
 } = require("../../src/models/github");
 const { log, fail } = require("../../src/utils/logger");
 
@@ -128,10 +128,10 @@ describe("fetchRepos", () => {
     const username = "testUser";
     const token = "testToken";
 
-    const result = await fetchRepos(username, token);
+    const result = await listRepos(username, token);
 
     expect(axios.get).toHaveBeenCalledWith(
-      `https://api.github.com/users/${username}/repos?visibility=all`,
+      `https://api.github.com/users/${username}/repos?visibility=all&per_page=100&page=1`,
       {
         headers: {
           Authorization: `token ${token}`,
@@ -148,7 +148,7 @@ describe("fetchRepos", () => {
     const username = "testUser";
     const token = "testToken";
 
-    const result = await fetchRepos(username, token);
+    const result = await listRepos(username, token);
 
     expect(result).toEqual([]);
   });
