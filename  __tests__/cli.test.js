@@ -1,7 +1,13 @@
-const { migrate } = require("../src/commands/migrate");
+const {
+  migrate: migrateBitbucketToGithub,
+} = require("../src/commands/migrateBitbucketToGithub");
+const {
+  migrate: migrateGithubToBitbucket,
+} = require("../src/commands/migrateGithubToBitbucket");
 const { program } = require("../src/cli");
 
-jest.mock("../src/commands/migrate");
+jest.mock("../src/commands/migrateBitbucketToGithub");
+jest.mock("../src/commands/migrateGithubToBitbucket");
 
 const originalArgv = process.argv;
 beforeEach(() => {
@@ -12,13 +18,14 @@ afterAll(() => {
 });
 describe("CLI", () => {
   beforeEach(() => {
-    migrate.mockClear();
+    migrateBitbucketToGithub.mockClear();
+    migrateGithubToBitbucket.mockClear();
   });
-  test("migrate command with required options", async () => {
+  test("migrate bitbucket-to-github command with required options", async () => {
     const parseArgs = [
       "node",
       "cli.js",
-      "migrate",
+      "bitbucket-to-github",
       "-b",
       "bitbucketUser",
       "-bt",
@@ -35,7 +42,7 @@ describe("CLI", () => {
 
     await program.parseAsync(parseArgs);
 
-    expect(migrate).toHaveBeenCalledWith({
+    expect(migrateBitbucketToGithub).toHaveBeenCalledWith({
       bitbucketUser: "bitbucketUser",
       bitbucketToken: "bitbucketToken",
       githubUser: "githubUser",
@@ -47,11 +54,11 @@ describe("CLI", () => {
     });
   });
 
-  test("migrate command with optional options", async () => {
+  test("migrate bitbucket-to-github command with optional options", async () => {
     const parseArgs = [
       "node",
       "cli.js",
-      "migrate",
+      "bitbucket-to-github",
       "-b",
       "bitbucketUser",
       "-bt",
@@ -73,13 +80,84 @@ describe("CLI", () => {
 
     await program.parseAsync(parseArgs);
 
-    expect(migrate).toHaveBeenCalledWith({
+    expect(migrateBitbucketToGithub).toHaveBeenCalledWith({
       bitbucketUser: "bitbucketUser",
       bitbucketToken: "bitbucketToken",
       githubUser: "githubUser",
       githubToken: "githubToken",
       workspace: "workspaceName",
       project: "projectName",
+      organization: "organizationName",
+      exclude: ["repo1", "repo2"],
+    });
+  });
+
+  test("migrate github-to-bitbucket command with required options", async () => {
+    const parseArgs = [
+      "node",
+      "cli.js",
+      "github-to-bitbucket",
+      "-b",
+      "bitbucketUser",
+      "-bt",
+      "bitbucketToken",
+      "-g",
+      "githubUser",
+      "-gt",
+      "githubToken",
+      "-w",
+      "workspaceName",
+      "-pk",
+      "projectkey",
+    ];
+
+    await program.parseAsync(parseArgs);
+
+    expect(migrateGithubToBitbucket).toHaveBeenCalledWith({
+      bitbucketUser: "bitbucketUser",
+      bitbucketToken: "bitbucketToken",
+      githubUser: "githubUser",
+      githubToken: "githubToken",
+      workspace: "workspaceName",
+      projectKey: "projectkey",
+      organization: undefined,
+      exclude: undefined,
+    });
+  });
+
+  test("migrate github-to-bitbucket command with optional options", async () => {
+    const parseArgs = [
+      "node",
+      "cli.js",
+      "github-to-bitbucket",
+      "-b",
+      "bitbucketUser",
+      "-bt",
+      "bitbucketToken",
+      "-g",
+      "githubUser",
+      "-gt",
+      "githubToken",
+      "-w",
+      "workspaceName",
+      "-pk",
+      "projectkey",
+      "-o",
+      "organizationName",
+      "-e",
+      "repo1",
+      "repo2",
+    ];
+
+    await program.parseAsync(parseArgs);
+
+    expect(migrateGithubToBitbucket).toHaveBeenCalledWith({
+      bitbucketUser: "bitbucketUser",
+      bitbucketToken: "bitbucketToken",
+      githubUser: "githubUser",
+      githubToken: "githubToken",
+      workspace: "workspaceName",
+      projectKey: "projectkey",
       organization: "organizationName",
       exclude: ["repo1", "repo2"],
     });

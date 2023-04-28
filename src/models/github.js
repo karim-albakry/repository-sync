@@ -85,4 +85,61 @@ const createRepo = async (authToken, repoName, isPrivate, retryCount = 0) => {
   }
 };
 
-module.exports = { createRepo, createOrgRepo };
+const fetchReposPage = async (username, token, page, perPage) => {
+  try {
+    const response = await axios.get(
+      `https://api.github.com/users/${username}/repos?visibility=all&per_page=${perPage}&page=${page}`,
+      {
+        headers: {
+          Authorization: `token ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching repositories: ${error.message}`);
+    return [];
+  }
+};
+
+const listRepos = async (username, token, exclude = [], specificRepos = []) => {
+  const perPage = 100;
+  const currentPage = 1;
+  let repos = [];
+
+  const initialRepos = await fetchReposPage(
+    username,
+    token,
+    currentPage,
+    perPage
+  );
+  repos = repos.concat(initialRepos);
+
+  const totalPages = Math.ceil(initialRepos.length / perPage);
+  const pageRequests = [];
+
+  for (let i = 2; i <= totalPages; i += 1) {
+    pageRequests.push(fetchReposPage(username, token, i, perPage));
+  }
+
+  const pages = await Promise.all(pageRequests);
+  pages.forEach((pageRepos) => {
+    repos = repos.concat(pageRepos);
+  });
+
+  const filteredRepos = repos.filter(({ name }) => {
+    const excludeRepo = exclude.includes(name);
+    const includeRepo =
+      specificRepos.length === 0 || specificRepos.includes(name);
+    return !excludeRepo && includeRepo;
+  });
+
+  const repoInfo = filteredRepos.map((repo) => ({
+    name: repo.name,
+    private: repo.private,
+  }));
+
+  return repoInfo;
+};
+
+module.exports = { createRepo, createOrgRepo, listRepos };

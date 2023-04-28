@@ -80,7 +80,7 @@ async function cloneRepo({ slug, repoLocation, sourceUrl }) {
     await git.cloneRepository(sourceUrl, repoLocation, { mirror: true });
     debug(`Repo ${slug} is cloned.`);
   } catch (err) {
-    console.error(`Failed to clone repository ${slug}: ${error.message}`);
+    console.error(`Failed to clone repository ${slug}: ${err.message}`);
     throw new Error(`Failed to [clone repository] ${slug}: ${err.message}`);
   }
 }

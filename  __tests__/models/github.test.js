@@ -1,9 +1,11 @@
 const axios = require("axios");
-const util = require("util");
-const { createRepo, createOrgRepo } = require("../../src/models/github");
-const { log, fail } = require("../../src/utils/logger");
 
-const setTimeoutPromise = util.promisify(setTimeout);
+const {
+  createRepo,
+  createOrgRepo,
+  listRepos,
+} = require("../../src/models/github");
+const { log, fail } = require("../../src/utils/logger");
 
 jest.mock("axios");
 jest.mock("../../src/utils/logger");
@@ -101,5 +103,53 @@ describe("repoCreator", () => {
 
     // Cleanup
     setTimeoutSpy.mockRestore();
+  });
+});
+
+describe("fetchRepos", () => {
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
+  it("should return an array of repository information", async () => {
+    const reposData = [
+      {
+        name: "repo1",
+        private: false,
+      },
+      {
+        name: "repo2",
+        private: true,
+      },
+    ];
+
+    axios.get.mockResolvedValue({ data: reposData });
+
+    const username = "testUser";
+    const token = "testToken";
+
+    const result = await listRepos(username, token);
+
+    expect(axios.get).toHaveBeenCalledWith(
+      `https://api.github.com/users/${username}/repos?visibility=all&per_page=100&page=1`,
+      {
+        headers: {
+          Authorization: `token ${token}`,
+        },
+      }
+    );
+
+    expect(result).toEqual(reposData);
+  });
+
+  it("should return an empty array if an error occurs", async () => {
+    axios.get.mockRejectedValue(new Error("Error fetching repositories"));
+
+    const username = "testUser";
+    const token = "testToken";
+
+    const result = await listRepos(username, token);
+
+    expect(result).toEqual([]);
   });
 });
